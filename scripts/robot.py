@@ -6,39 +6,48 @@ import math as m
 import numpy as np
 from copy import deepcopy
 from cse_190_assi_1.srv import requestMapData
-from cse_190_assi_1.msg import temperatureMessage
+from cse_190_assi_1.msg import * 
 from cse_190_assi_1.srv import *
 from std_msgs.msg import Bool
 from std_msgs.msg import String
 from read_config import read_config
 
 
-def call_Texture(data):
-   	temp = data
-   	print ( temp)
 
-	response = rospy.ServiceProxy("requestTexture", requestTexture)
-	texture_reading = response
-
-def Robot():
-	pub = rospy.Publisher("/temp_sensor/activation", Bool, queue_size = 1)
+class Robot():
+    def __init__(self):
 	rospy.init_node("robot")
+	#createa publisher to active temp_sensor/activation
+	self.active_pub = rospy.Publisher(
+		"/temp_sensor/activation", 
+		Bool, 
+		queue_size = 1
+	)
 	rospy.sleep(1)
-	pubbb = True
-	pub.publish(pubbb)
+	#publish
+	self.active_pub.publish(True)
+	#create a subscriber to recive data from temp_sensor/data
+	self.temp_sensor_sub = rospy.Subscriber(
+		"/temp_sensor/data", 
+		temperatureMessage, 
+		self.handle_call_texture
+	)
+	#request map server to make move
+	self.move = rospy.ServiceProxy(
+		"moveService", 
+		moveService
+	)
 	
-
-	rospy.Subscriber("/temp_sensor/data", temperatureMessage, call_Texture)
-	
-	//just added you can modify. it is trying to make move
-	move_step = rospy.ServiceProxy("moveService", moveService)
-	make_move(move_step[0], move_step[1])
-
-	
-
 	rospy.spin()
-def make_move(x, y):
-	return	
+
+    def handle_call_texture(self, data):
+	#reqeust texture from requesttexture
+	self.texture_request = rospy.ServiceProxy("requestTexture", requestTexture)
+	#returning temperature data
+	temp_data = data.temperature
+	print temp_data
+	return temp_data
+
 
 if __name__ == '__main__':
-    Robot()
+   r = Robot()
