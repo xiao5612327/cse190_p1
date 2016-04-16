@@ -71,7 +71,7 @@ class MapServer():
         num_cols = len(self.config['pipe_map'][0])
         self.pos[0] = (self.pos[0] + move[0]) % num_rows
         self.pos[1] = (self.pos[1] + move[1]) % num_cols
-        #print self.pos
+        print self.pos
 
 
 if __name__ == '__main__':

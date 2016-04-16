@@ -54,7 +54,7 @@ class Robot():
 		requestTexture
 	)
 	self.temp_data = np.float32(0.0)
-	self.temp_texture = "s"
+	self.temp_texture = " "
 	self.sensor_loop()	
 	rospy.sleep(1)
 
@@ -66,11 +66,13 @@ class Robot():
 	self.write_temp.publish(self.temp_data)
 
     def sensor_loop(self):
-	while not rospy.is_shutdown():
+	count = 0
+	while not count != 10:
 	    #make texture publish
 	    self.handle_texture()
 	    #make move 
 	    self.handle_move()
+	    count = count +1
 		
     def handle_move(self):
 	temp = self.move()
