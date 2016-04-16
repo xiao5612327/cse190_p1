@@ -16,7 +16,14 @@ from read_config import read_config
 class Robot():
     def __init__(self):
 	rospy.init_node("robot")
-	#createa publisher to active temp_sensor/activation
+	self.config = read_config()
+	self.text_map = self.config["texture_map"]
+	self.move_correct_prob = self.config["prob_move_correct"]
+	self.text_correct_prob = self.config["prob_tex_correct"]
+	self.prob_array = []
+	self.current_pos = self.config["starting_pos"]
+	self.init_prob()
+	#create publisher to active temp_sensor/activation
 	self.active_pub = rospy.Publisher(
 		"/temp_sensor/activation", 
 		Bool, 
@@ -29,7 +36,7 @@ class Robot():
 	self.temp_sensor_sub = rospy.Subscriber(
 		"/temp_sensor/data", 
 		temperatureMessage, 
-		self.handle_call_texture
+		self.handle_temp
 	)
 	#request map server to make move
 	self.move = rospy.ServiceProxy(
@@ -48,6 +55,13 @@ class Robot():
 		String,
 		queue_size = 10
 	)
+
+	'''self.terminator = rospy.Publisher(
+		'/map_node/sim_complete',
+		Bool,
+		queue_size = 1
+	)'''
+
 	#reqeust texture from requesttexture
 	self.texture_request = rospy.ServiceProxy(
 		"requestTexture",
@@ -55,33 +69,81 @@ class Robot():
 	)
 	self.temp_data = np.float32(0.0)
 	self.temp_texture = "s"
-	self.sensor_loop()	
-	rospy.sleep(1)
+	rospy.spin()
+	#self.sensor_loop()	
+	#rospy.sleep(1)
 
-    def handle_call_texture(self, data):
+    def handle_temp(self, data):
 	#returning temperature data
 	self.temp_data = data.temperature
 	#debug massage
 	print self.temp_data
 	self.write_temp.publish(self.temp_data)
+	self.handle_texture()
+	self.handle_move()
 
-    def sensor_loop(self):
+    '''def sensor_loop(self):
 	while not rospy.is_shutdown():
 	    #make texture publish
 	    self.handle_texture()
 	    #make move 
-	    self.handle_move()
+	    self.handle_move() '''
 		
     def handle_move(self):
-	temp = self.move()
-	print temp 
+	self.nextMove = self.move()
+	print self.nextMove
+	#self.handle_move_prob()
+
+    def handle_move_prob(self):
+  	return
 
     def handle_texture(self):
-	texture_data = self.texture_request()
+	self.texture_data = self.texture_request()
 	#store texture data
-	self.write_texture.publish(texture_data.data)
+	self.write_texture.publish(self.texture_data.data)
 	#debug message
-	print texture_data.data
+	print self.texture_data.data
+	self.handle_texture_probability()
+
+    def handle_texture_probability(self):
+	total = 0
+        for i in range (self.rows):
+		for j in range (self.columns):
+			texture = self.text_map[i][j]
+			if texture == self.texture_data.data:
+				position = self.columns*i + j
+				self.prob_array[position] *= self.text_correct_prob
+				total += self.prob_array[position]
+				#print self.prob_array[position]
+			else:
+				position = self.columns*i + j
+				self.prob_array[position] *= (1-self.text_correct_prob)
+				total += self.prob_array[position]
+				#print self.prob_array[position]
+
+	for x in range (self.rows):
+		for y in range (self.columns):
+			position = self.columns*x + y
+			self.prob_array[position] = self.prob_array[position]/total	
+			#print self.prob_array[position]
+
+
+    def init_prob(self):
+	self.rows = len(self.config['pipe_map'])
+	self.columns = len(self.config['pipe_map'][0])
+	self.size = np.float32(self.rows*self.columns)
+        for i in range (self.size):
+		self.prob_array.append(1/(self.size))	
+		#print self.prob_array[i]
+
+def handle_write_toFile(self):
+	terminator = rospy.Publisher(
+		'/map_node/sim_complete',
+		Bool,
+		queue_size = 1
+	)
+	terminator.publish(self)
 
 if __name__ == '__main__':
    r = Robot()
+   handle_write_toFile(True)
