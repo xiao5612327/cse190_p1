@@ -5,11 +5,10 @@ import random
 import math as m
 import numpy as np
 from copy import deepcopy
-from cse_190_assi_1.srv import requestMapData
-from cse_190_assi_1.msg import * 
-from cse_190_assi_1.srv import *
+from cse_190_assi_1.srv import requestMapData, requestTexture, moveService
+from cse_190_assi_1.msg import temperatureMessage, RobotProbabilities
 from std_msgs.msg import Bool
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from read_config import read_config
 
 
@@ -37,17 +36,52 @@ class Robot():
 		"moveService", 
 		moveService
 	)
-	
-	rospy.spin()
+	#write temperture data into file
+	self.write_temp = rospy.Publisher(
+		'/results/temperature_data',
+		Float32,
+		queue_size = 10
+	)
+	#write texture into file
+	self.write_texture = rospy.Publisher(
+		'/results/texture_data',
+		String,
+		queue_size = 10
+	)
+	#reqeust texture from requesttexture
+	self.texture_request = rospy.ServiceProxy(
+		"requestTexture",
+		requestTexture
+	)
+	self.temp_data = np.float32(0.0)
+	self.temp_texture = "s"
+	self.sensor_loop()	
+	rospy.sleep(1)
 
     def handle_call_texture(self, data):
-	#reqeust texture from requesttexture
-	self.texture_request = rospy.ServiceProxy("requestTexture", requestTexture)
 	#returning temperature data
-	temp_data = data.temperature
-	print temp_data
-	return temp_data
+	self.temp_data = data.temperature
+	#debug massage
+	print self.temp_data
+	self.write_temp.publish(self.temp_data)
 
+    def sensor_loop(self):
+	while not rospy.is_shutdown():
+	    #make texture publish
+	    self.handle_texture()
+	    #make move 
+	    self.handle_move()
+		
+    def handle_move(self):
+	temp = self.move()
+	print temp 
+
+    def handle_texture(self):
+	texture_data = self.texture_request()
+	#store texture data
+	self.write_texture.publish(texture_data.data)
+	#debug message
+	print texture_data.data
 
 if __name__ == '__main__':
    r = Robot()
