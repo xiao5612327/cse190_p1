@@ -58,7 +58,7 @@ class Robot():
 	)
 	#write probabilities into file
 	self.write_prob = rospy.Publisher(
-		'/results/probabilites',
+		'/results/probabilities',
 		RobotProbabilities,
 		queue_size = 10
 	)
@@ -106,8 +106,8 @@ class Robot():
 	self.write_temp.publish(self.temp_data)
 	#publish texture data
 	self.write_texture.publish(self.texture_data.data)
-	#publish prob data 
-	self.write_prob.publish(self.prob)
+	#publish prob data
+	self.write_prob.publish(self.prob_array)
 			
     def make_move(self):
 	if self.move_made > self.total_move:
