@@ -81,6 +81,8 @@ class Robot():
 	)
 	self.prob = RobotProbabilities()
 	self.temp_data = np.float32(0.0)
+	self.move_made = 0
+	self.total_move = len(self.move_list)
 	rospy.spin()
 	#self.sensor_loop()	
 	#rospy.sleep(1)
@@ -89,35 +91,42 @@ class Robot():
 	#returning temperature data
 	self.temp_data = data.temperature
 	#debug massage
-	print self.temp_data
-	self.write_temp.publish(self.temp_data)
 	self.handle_texture()
-	self.handle_move()
+	self.handle_move_prob()
+	self.write_all()
+	self.make_move()
     '''def sensor_loop(self):
 	while not rospy.is_shutdown():
 	    #make texture publish
 	    self.handle_texture()
 	    #make move 
 	    self.handle_move() '''
-		
-    def handle_move(self):
+    def write_all(self):
+	#publish self.temp_data
+	self.write_temp.publish(self.temp_data)
+	#publish texture data
+	self.write_texture.publish(self.texture_data.data)
+	#publish prob data 
+	self.write_prob.publish(self.prob)
+			
+    def make_move(self):
+	if self.move_made > self.total_move:
+	    print self.move_made 
+  	    #call to create a file		
+	    self.handle_write_toFile()
+	else:
+	    print self.move_made
+	    self.move_made = self.move_made + 1
 	self.move()
-	self.handle_move_prob()
 
     def handle_move_prob(self):
-	size = len(self.move_list)
 	#debug
 	#print size
-	for i in range (size):
+	for i in range (self.total_move):
 	    current_move = self.move_list[i]
 	    self.calculate_correct_move(current_move)
 	#publish prob data
 	self.prob.data.append(self.prob_array)
-	print self.prob.data
-	rospy.sleep(1)
-	self.write_prob.publish(self.prob)
-  	#call to create a file		
-	self.handle_write_toFile()
     
     def calculate_correct_move(self, move):
 	#get x and y position
@@ -162,10 +171,8 @@ class Robot():
 	
     def handle_texture(self):
 	self.texture_data = self.texture_request()
-	#store texture data
-	self.write_texture.publish(self.texture_data.data)
 	#debug message
-	print self.texture_data.data
+	#print self.texture_data.data
 	self.handle_texture_probability()
 
     def handle_texture_probability(self):
