@@ -196,12 +196,12 @@ class Robot():
 	self.output_prob_array[move_position] = self.output_prob_array[move_position] + dest_prb
 
  	#get all possible move and remove the one correct	
-	possible_move = deepcopy(self.config['possible_moves'])
-	possible_move.remove(move)
-	size = len(possible_move)
+	pos_move = deepcopy(self.config['possible_moves'])
+	pos_move.remove(move)
+	size = len(pos_move)
 	#loop 4 times to calculate other 4 incorrect move
 	for i in range (size):
-	    next_incor_move = possible_move[i]
+	    next_incor_move = pos_move[i]
 	    self.calculate_incorrect_move(next_incor_move)	
 
     def calculate_incorrect_move(self, move):
