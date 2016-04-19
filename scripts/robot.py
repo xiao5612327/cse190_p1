@@ -24,6 +24,7 @@ class Robot():
 	self.sd = self.config["temp_noise_std_dev"]
 	self.move_list = self.config["move_list"]
 	self.prob_array = []
+	self.output_prob_array = []
 	self.current_pos = self.config["starting_pos"]
 	self.init_prob()
 
@@ -144,13 +145,13 @@ class Robot():
 	#publish texture data
 	self.write_texture.publish(self.texture_data.data)
 	print self.texture_data.data
-	#publish prob data
 	self.write_prob.publish(self.prob_array)
+	#publish prob data
 	if self.move_made > self.total_move:
 	    self.handle_write_toFile()
 	    rospy.sleep(1)
 	    rospy.signal_shutdown(Robot)
-			
+    
     def make_move(self):
 	self.move_made = self.move_made + 1
 	self.move(self.try_to_move)
@@ -162,14 +163,17 @@ class Robot():
 	    return
 	current_move = self.move_list[self.move_made]
 	self.try_to_move = current_move
-	
+
+	#loop thought all prob array	
         for i in range (0, self.rows):
 	    for j in range (0, self.columns):
 	        self.current_pos[0] = i
 		self.current_pos[1] = j
 	    	self.calculate_correct_move(current_move)
 	    	#publish prob data
-	    	self.prob.data.append(self.prob_array)
+	for k in range (self.size):
+	    self.prob_array[k] = self.output_prob_array[k] 
+	    self.output_prob_array[k]  = 0.0
     
     def calculate_correct_move(self, move):
 	#get x and y position
@@ -189,7 +193,7 @@ class Robot():
 	
 	#destination grid prob = current grid prob * correct prob + dest_guid prob
 	dest_prb = self.prob_array[current_position] * self.move_correct_prob
-	self.prob_array[move_position] = self.prob_array[move_position] + dest_prb
+	self.output_prob_array[move_position] = self.output_prob_array[move_position] + dest_prb
 
  	#get all possible move and remove the one correct	
 	possible_move = deepcopy(self.config['possible_moves'])
@@ -217,7 +221,7 @@ class Robot():
 	current_position = self.columns * self.current_pos[0] + self.current_pos[1]
 	#destination grid prob = current grid prob * correct prob + dest_guid prob
 	dest_prb = self.prob_array[current_position] * (1 - self.move_correct_prob)
-	self.prob_array[move_position] = self.prob_array[move_position] + dest_prb	
+	self.output_prob_array[move_position] = self.output_prob_array[move_position] + dest_prb	
 	
     def handle_texture(self):
 	self.texture_data = self.texture_request()
@@ -253,7 +257,8 @@ class Robot():
 	self.columns = len(self.config['pipe_map'][0])
 	self.size = np.float32(self.rows*self.columns)
         for i in range (self.size):
-		self.prob_array.append(1/(self.size))	
+		self.prob_array.append(1/(self.size))
+		self.output_prob_array.append(0.0)	
 		#print self.prob_array[i]
 
     def handle_write_toFile(self):
