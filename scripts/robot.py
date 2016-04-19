@@ -24,15 +24,14 @@ class Robot():
 	self.prob_array = []
 	self.current_pos = self.config["starting_pos"]
 	self.init_prob()
+
 	#create publisher to active temp_sensor/activation
 	self.active_pub = rospy.Publisher(
 		"/temp_sensor/activation", 
 		Bool, 
 		queue_size = 1
 	)
-	rospy.sleep(1)
 	#publish
-	self.active_pub.publish(True)
 	#create a subscriber to recive data from temp_sensor/data
 	self.temp_sensor_sub = rospy.Subscriber(
 		"/temp_sensor/data", 
@@ -79,6 +78,8 @@ class Robot():
 		Bool,
 		queue_size = 1
 	)
+	rospy.sleep(1)
+	self.active_pub.publish(True)
 	self.prob = RobotProbabilities()
 	self.temp_data = np.float32(0.0)
 	self.move_made = 0
@@ -90,6 +91,7 @@ class Robot():
     def handle_temp(self, data):
 	#returning temperature data
 	self.temp_data = data.temperature
+	print self.temp_data
 	#debug massage
 	self.handle_texture()
 	self.handle_move_prob()
@@ -111,6 +113,7 @@ class Robot():
 	self.write_prob.publish(self.prob_array)
 	if self.move_made > self.total_move:
 	    self.handle_write_toFile()
+	    rospy.sleep(1)
 	    rospy.signal_shutdown(Robot)
 			
     def make_move(self):
@@ -124,9 +127,15 @@ class Robot():
 	    return
 	current_move = self.move_list[self.move_made]
 	self.try_to_move = current_move
-	self.calculate_correct_move(current_move)
-	#publish prob data
-	self.prob.data.append(self.prob_array)
+	
+        for i in range (0, self.rows):
+	    for j in range (0, self.columns):
+		print i, j
+	        self.current_pos[0] = i
+		self.current_pos[1] = j
+	    	self.calculate_correct_move(current_move)
+	    	#publish prob data
+	    	self.prob.data.append(self.prob_array)
     
     def calculate_correct_move(self, move):
 	#get x and y position
@@ -141,8 +150,13 @@ class Robot():
 	elif current_y < 0:
 	    current_y = self.columns - 1
 	#calculate prob about move correct and incorrect
-	position = self.columns * current_x + current_y
-	self.prob_array[position] = self.prob_array[position] * self.move_correct_prob
+	move_position = self.columns * current_x + current_y
+	current_position = self.columns * self.current_pos[0] + self.current_pos[1]
+	
+	#destination grid prob = current grid prob * correct prob + dest_guid prob
+	dest_prb = self.prob_array[current_position] * self.move_correct_prob
+	self.prob_array[move_position] = self.prob_array[move_position] + dest_prb
+
  	#get all possible move and remove the one correct	
 	possible_move = deepcopy(self.config['possible_moves'])
 	possible_move.remove(move)
@@ -165,9 +179,11 @@ class Robot():
 	elif current_y < 0:
 	    current_y = self.columns - 1
 	#calculate prob about move correct and incorrect
-	position = self.columns * current_x + current_y
-	self.prob_array[position] = self.prob_array[position] * (1-self.move_correct_prob)
-	
+	move_position = self.columns * current_x + current_y
+	current_position = self.columns * self.current_pos[0] + self.current_pos[1]
+	#destination grid prob = current grid prob * correct prob + dest_guid prob
+	dest_prb = self.prob_array[current_position] * (1 - self.move_correct_prob)
+	self.prob_array[move_position] = self.prob_array[move_position] + dest_prb	
 	
     def handle_texture(self):
 	self.texture_data = self.texture_request()
