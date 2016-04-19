@@ -93,8 +93,8 @@ class Robot():
 	#debug massage
 	self.handle_texture()
 	self.handle_move_prob()
-	self.write_all()
 	self.make_move()
+	self.write_all()
     '''def sensor_loop(self):
 	while not rospy.is_shutdown():
 	    #make texture publish
@@ -106,25 +106,25 @@ class Robot():
 	self.write_temp.publish(self.temp_data)
 	#publish texture data
 	self.write_texture.publish(self.texture_data.data)
+	print self.texture_data.data
 	#publish prob data
 	self.write_prob.publish(self.prob_array)
+	if self.move_made > self.total_move:
+	    self.handle_write_toFile()
+	    rospy.signal_shutdown(Robot)
 			
     def make_move(self):
-	if self.move_made > self.total_move:
-	    print self.move_made 
-  	    #call to create a file		
-	    self.handle_write_toFile()
-	else:
-	    print self.move_made
-	    self.move_made = self.move_made + 1
-	self.move()
+	self.move_made = self.move_made + 1
+	self.move(self.try_to_move)
 
     def handle_move_prob(self):
 	#debug
 	#print size
-	for i in range (self.total_move):
-	    current_move = self.move_list[i]
-	    self.calculate_correct_move(current_move)
+	if self.move_made >= self.total_move:
+	    return
+	current_move = self.move_list[self.move_made]
+	self.try_to_move = current_move
+	self.calculate_correct_move(current_move)
 	#publish prob data
 	self.prob.data.append(self.prob_array)
     
