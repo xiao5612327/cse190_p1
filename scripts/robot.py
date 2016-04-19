@@ -2,7 +2,7 @@
 
 import rospy
 import random
-import math as m
+import math
 import numpy as np
 from copy import deepcopy
 from cse_190_assi_1.srv import requestMapData, requestTexture, moveService
@@ -18,8 +18,10 @@ class Robot():
 	rospy.init_node("robot")
 	self.config = read_config()
 	self.text_map = self.config["texture_map"]
+	self.pipe_map = self.config["pipe_map"]
 	self.move_correct_prob = self.config["prob_move_correct"]
 	self.text_correct_prob = self.config["prob_tex_correct"]
+	self.sd = self.config["temp_noise_std_dev"]
 	self.move_list = self.config["move_list"]
 	self.prob_array = []
 	self.current_pos = self.config["starting_pos"]
@@ -31,7 +33,6 @@ class Robot():
 		Bool, 
 		queue_size = 1
 	)
-	#publish
 	#create a subscriber to recive data from temp_sensor/data
 	self.temp_sensor_sub = rospy.Subscriber(
 		"/temp_sensor/data", 
@@ -80,10 +81,12 @@ class Robot():
 	)
 	rospy.sleep(1)
 	self.active_pub.publish(True)
+
 	self.prob = RobotProbabilities()
 	self.temp_data = np.float32(0.0)
 	self.move_made = 0
 	self.total_move = len(self.move_list)
+	self.active_pub.publish(True)
 	rospy.spin()
 	#self.sensor_loop()	
 	#rospy.sleep(1)
@@ -92,17 +95,49 @@ class Robot():
 	#returning temperature data
 	self.temp_data = data.temperature
 	print self.temp_data
+	self.updateTempBelief()
 	#debug massage
 	self.handle_texture()
 	self.handle_move_prob()
 	self.make_move()
 	self.write_all()
+
     '''def sensor_loop(self):
 	while not rospy.is_shutdown():
 	    #make texture publish
 	    self.handle_texture()
 	    #make move 
 	    self.handle_move() '''
+
+    def updateTempBelief(self):
+	total = 0
+        for i in range (self.rows):
+		for j in range (self.columns):
+			truth_value = self.pipe_map[i][j]
+			if( truth_value == self.pipe_map[0][2] ):
+				truth_value = 40
+			elif( truth_value == self.pipe_map[0][1] ):
+				truth_value = 25
+			elif( truth_value == self.pipe_map[0][0] ):
+				truth_value = 20
+			position = self.columns*i + j
+			self.prob_array[position] *= self.temp_prob_given_pos(truth_value)
+			total += self.prob_array[position]
+
+	for x in range (self.rows):
+		for y in range (self.columns):
+			position = self.columns*x + y
+			self.prob_array[position] = self.prob_array[position]/total	
+
+    def temp_prob_given_pos(self, truth_value):
+	value1 = 2 * math.pi
+	value2 = math.sqrt(value1) * self.sd
+	value3 = np.float32(1/value2)
+	value4 = ((self.temp_data - truth_value) * (self.temp_data - truth_value)) * -1
+	value5 = np.float32(value4/(2 * self.sd * self.sd))	
+	value6 = value3 * math.pow(math.e, value5)	
+	return value6
+
     def write_all(self):
 	#publish self.temp_data
 	self.write_temp.publish(self.temp_data)
@@ -130,7 +165,6 @@ class Robot():
 	
         for i in range (0, self.rows):
 	    for j in range (0, self.columns):
-		print i, j
 	        self.current_pos[0] = i
 		self.current_pos[1] = j
 	    	self.calculate_correct_move(current_move)
