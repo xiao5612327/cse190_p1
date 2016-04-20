@@ -96,10 +96,11 @@ class Robot():
 	#returning temperature data
 	self.temp_data = data.temperature
 	print self.temp_data
+
 	self.updateTempBelief()
-	#debug massage
 	self.handle_texture()
 	self.handle_move_prob()
+	self.normalize_move()
 	self.make_move()
 	self.write_all()
 
@@ -111,42 +112,58 @@ class Robot():
 	    self.handle_move() '''
 
     def updateTempBelief(self):
-	total = 0
+	total2 = 0
+        for m in range (self.rows):
+		for n in range (self.columns):
+			truth_value = self.pipe_map[m][n]
+			if( truth_value == 'H' ):
+				truth_value = 40
+			elif( truth_value == '-' ):
+				truth_value = 25
+			elif( truth_value == 'C' ):
+				truth_value = 20
+			position = self.columns*m + n
+			self.prob_array[position] *= self.temp_prob_given_pos(truth_value)
+			total2 += self.prob_array[position]
+
+	for r in range (self.rows):
+		for c in range (self.columns):
+			position = self.columns*r + c
+			self.prob_array[position] = self.prob_array[position]/(total2)	
+
+    def normalize_move(self):
+	total3 = 0
         for i in range (self.rows):
 		for j in range (self.columns):
-			truth_value = self.pipe_map[i][j]
-			if( truth_value == self.pipe_map[0][2] ):
-				truth_value = 40
-			elif( truth_value == self.pipe_map[0][1] ):
-				truth_value = 25
-			elif( truth_value == self.pipe_map[0][0] ):
-				truth_value = 20
 			position = self.columns*i + j
-			self.prob_array[position] *= self.temp_prob_given_pos(truth_value)
-			total += self.prob_array[position]
+			total3 += self.prob_array[position]
+			
+	for w in range (self.rows):
+		for s in range (self.columns):
+			position = self.columns*w + s
+			self.prob_array[position] = self.prob_array[position]/total3
 
-	for x in range (self.rows):
-		for y in range (self.columns):
-			position = self.columns*x + y
-			self.prob_array[position] = self.prob_array[position]/total	
 
-    def temp_prob_given_pos(self, truth_value):
+
+    def temp_prob_given_pos(self, truth):
 	value1 = 2 * math.pi
-	value2 = math.sqrt(value1) * self.sd
+	value2 = np.float32(math.sqrt(value1)) * self.sd
 	value3 = np.float32(1/value2)
-	value4 = ((self.temp_data - truth_value) * (self.temp_data - truth_value)) * -1
+	value4 = math.pow(self.temp_data - truth,2) * (-1)
 	value5 = np.float32(value4/(2 * self.sd * self.sd))	
-	value6 = value3 * math.pow(math.e, value5)	
-	return value6
+	result = value3 * math.pow(math.e, value5)	
+	return result
 
     def write_all(self):
 	#publish self.temp_data
 	self.write_temp.publish(self.temp_data)
+
 	#publish texture data
 	self.write_texture.publish(self.texture_data.data)
-	print self.texture_data.data
-	self.write_prob.publish(self.prob_array)
+
 	#publish prob data
+	self.write_prob.publish(self.prob_array)
+
 	if self.move_made > self.total_move:
 	    self.handle_write_toFile()
 	    rospy.sleep(1)
@@ -165,10 +182,10 @@ class Robot():
 	self.try_to_move = current_move
 
 	#loop thought all prob array	
-        for i in range (0, self.rows):
-	    for j in range (0, self.columns):
-	        self.current_pos[0] = i
-		self.current_pos[1] = j
+        for a in range (0, self.rows):
+	    for b in range (0, self.columns):
+	        self.current_pos[0] = a
+		self.current_pos[1] = b
 	    	self.calculate_correct_move(current_move)
 	    	#publish prob data
 	for k in range (self.size):
@@ -192,7 +209,7 @@ class Robot():
 	current_position = self.columns * self.current_pos[0] + self.current_pos[1]
 	
 	#destination grid prob = current grid prob * correct prob + dest_guid prob
-	dest_prb = self.prob_array[current_position] * self.move_correct_prob
+	dest_prb = self.prob_array[current_position] * self.move_correct_prob 
 	self.output_prob_array[move_position] = self.output_prob_array[move_position] + dest_prb
 
  	#get all possible move and remove the one correct	
@@ -200,8 +217,8 @@ class Robot():
 	pos_move.remove(move)
 	size = len(pos_move)
 	#loop 4 times to calculate other 4 incorrect move
-	for i in range (size):
-	    next_incor_move = pos_move[i]
+	for t in range (size):
+	    next_incor_move = pos_move[t]
 	    self.calculate_incorrect_move(next_incor_move)	
 
     def calculate_incorrect_move(self, move):
@@ -220,13 +237,13 @@ class Robot():
 	move_position = self.columns * current_x + current_y
 	current_position = self.columns * self.current_pos[0] + self.current_pos[1]
 	#destination grid prob = current grid prob * correct prob + dest_guid prob
-	dest_prb = self.prob_array[current_position] * (1 - self.move_correct_prob)
+	dest_prb = self.prob_array[current_position] * (1 - self.move_correct_prob)/4
 	self.output_prob_array[move_position] = self.output_prob_array[move_position] + dest_prb	
 	
     def handle_texture(self):
 	self.texture_data = self.texture_request()
 	#debug message
-	#print self.texture_data.data
+	print self.texture_data.data
 	self.handle_texture_probability()
 
     def handle_texture_probability(self):
@@ -234,15 +251,13 @@ class Robot():
         for i in range (self.rows):
 	    for j in range (self.columns):
 		texture = self.text_map[i][j]
-		    if texture == self.texture_data.data:
-			position = self.columns*i + j
+		position = self.columns*i + j
+		if texture == self.texture_data.data:
 			self.prob_array[position] *= self.text_correct_prob
-			total += self.prob_array[position]
 			#print self.prob_array[position]
-		    else:
-			position = self.columns*i + j
+		else:
 			self.prob_array[position] *= (1-self.text_correct_prob)
-			total += self.prob_array[position]
+		total += self.prob_array[position]
 			#print self.prob_array[position]
 
 	for x in range (self.rows):
@@ -256,7 +271,7 @@ class Robot():
 	self.rows = len(self.config['pipe_map'])
 	self.columns = len(self.config['pipe_map'][0])
 	self.size = np.float32(self.rows*self.columns)
-        for i in range (self.size):
+        for v in range (self.size):
 		self.prob_array.append(1/(self.size))
 		self.output_prob_array.append(0.0)	
 		#print self.prob_array[i]
