@@ -232,24 +232,24 @@ class Robot():
     def handle_texture_probability(self):
 	total = 0
         for i in range (self.rows):
-		for j in range (self.columns):
-			texture = self.text_map[i][j]
-			if texture == self.texture_data.data:
-				position = self.columns*i + j
-				self.prob_array[position] *= self.text_correct_prob
-				total += self.prob_array[position]
-				#print self.prob_array[position]
-			else:
-				position = self.columns*i + j
-				self.prob_array[position] *= (1-self.text_correct_prob)
-				total += self.prob_array[position]
-				#print self.prob_array[position]
+	    for j in range (self.columns):
+		texture = self.text_map[i][j]
+		    if texture == self.texture_data.data:
+			position = self.columns*i + j
+			self.prob_array[position] *= self.text_correct_prob
+			total += self.prob_array[position]
+			#print self.prob_array[position]
+		    else:
+			position = self.columns*i + j
+			self.prob_array[position] *= (1-self.text_correct_prob)
+			total += self.prob_array[position]
+			#print self.prob_array[position]
 
 	for x in range (self.rows):
-		for y in range (self.columns):
-			position = self.columns*x + y
-			self.prob_array[position] = self.prob_array[position]/total
-			#print self.prob_array[position]
+	    for y in range (self.columns):
+		position = self.columns*x + y
+		self.prob_array[position] = self.prob_array[position]/total
+		#print self.prob_array[position]
 
 
     def init_prob(self):
